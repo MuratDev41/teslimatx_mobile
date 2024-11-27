@@ -1,4 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:geolocator/geolocator.dart';
+import 'package:permission_handler/permission_handler.dart';
+import 'package:http/http.dart' as http;
 
 void main() {
   runApp(MyApp());
@@ -46,7 +49,10 @@ class _MainPageState extends State<MainPage> {
             print('App icon pressed!');
           },
         ),
-        title: Text('TeslimatX', style: TextStyle(color: Colors.white70),),
+        title: Text(
+          'TeslimatX',
+          style: TextStyle(color: Colors.white70),
+        ),
         backgroundColor: Colors.black,
       ),
       body: _pages[_selectedIndex],
@@ -91,6 +97,51 @@ class UserOrdersPage extends StatefulWidget {
 
 class _UserOrdersPageState extends State<UserOrdersPage> {
   String orderStatus = 'Devam Ediyor'; // Initial order status
+  Position? _currentPosition;
+
+  @override
+  void initState() {
+    super.initState();
+    _requestLocationPermission();
+  }
+
+  Future<void> _requestLocationPermission() async {
+    if (await Permission.location.isDenied) {
+      await Permission.location.request();
+    }
+    _startLocationUpdates();
+  }
+
+  void _startLocationUpdates() {
+    Geolocator.getPositionStream(
+      locationSettings: LocationSettings(
+        accuracy: LocationAccuracy.high,
+        distanceFilter: 10,
+      ),
+    ).listen((Position position) {
+      setState(() {
+        _currentPosition = position;
+      });
+      print('Location: ${position.latitude}, ${position.longitude}');
+      sendLocationToServer(position); // Send location to the server
+    });
+  }
+
+  Future<void> sendLocationToServer(Position position) async {
+    final url = Uri.parse(
+        'https://your-server-url.com/location'); // Replace with your server URL
+    final response = await http.post(
+      url,
+      headers: {'Content-Type': 'application/json'},
+      body:
+          '{"latitude": ${position.latitude}, "longitude": ${position.longitude}}',
+    );
+    if (response.statusCode == 200) {
+      print('Location sent successfully');
+    } else {
+      print('Failed to send location: ${response.body}');
+    }
+  }
 
   void updateStatus(String newStatus) {
     setState(() {
